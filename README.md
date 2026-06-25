@@ -11,5 +11,11 @@ A Flappy Bird clone where the bird is a **winged flying bus**. Tap / click / pre
 ## Run locally
 Just open `index.html` in a browser.
 
-## Play online
-Deployed for free via **GitHub Pages** → https://dannyluutpt.github.io/open-flappy-bird/
+## Play online (free, via GitHub Pages)
+One-time setup by the repo owner:
+1. Repo **Settings → Pages**
+2. **Build and deployment → Source: _Deploy from a branch_**
+3. Branch: `claude/flappiebus-game-k49rcy` (or `main` after merging), folder `/ (root)` → **Save**
+4. Wait ~1 minute, then open:
+
+**https://dannyluutpt.github.io/Open-Flappy-Bird/**
