@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#4ec0ca" />
+<title>FlappieBus 🚌</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    background: #222;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #wrap {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #game {
+    display: block;
+    touch-action: none;
+    box-shadow: 0 0 40px rgba(0,0,0,.5);
+    background: #4ec0ca;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  /* Overlays */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+    pointer-events: none;
+  }
+  .overlay.active { pointer-events: auto; }
+  .panel {
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 22px;
+    padding: 26px 30px;
+    max-width: 88%;
+    width: 360px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.45);
+  }
+  h1 {
+    font-size: 38px;
+    letter-spacing: 1px;
+    text-shadow: 3px 3px 0 rgba(0,0,0,.35);
+    margin-bottom: 4px;
+  }
+  h1 .em { font-size: 40px; }
+  .sub { opacity: .85; margin-bottom: 18px; font-size: 15px; }
+  .big-score { font-size: 64px; font-weight: 800; line-height: 1; margin: 8px 0; text-shadow: 3px 3px 0 rgba(0,0,0,.35); }
+  .best { font-size: 15px; opacity: .9; margin-bottom: 16px; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    transition: transform .08s ease, filter .15s ease;
+    font-size: 17px;
+  }
+  button:active { transform: scale(.95); }
+  .btn-primary {
+    background: linear-gradient(#ffd34e, #f7b733);
+    color: #5a3b00;
+    padding: 14px 30px;
+    font-size: 19px;
+    box-shadow: 0 5px 0 #c98a16;
+    margin: 4px;
+  }
+  .btn-ghost {
+    background: rgba(255,255,255,.16);
+    color: #fff;
+    padding: 11px 22px;
+    margin: 4px;
+  }
+  .hint { margin-top: 16px; font-size: 13px; opacity: .8; }
+
+  /* HUD score during play */
+  #hud {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 52px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 3px 3px 0 rgba(0,0,0,.35);
+    pointer-events: none;
+    display: none;
+  }
+
+  /* gear button */
+  #gear {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.4);
+    color: #fff;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+  }
+
+  /* Settings */
+  .settings-title { font-size: 24px; margin-bottom: 18px; }
+  .section-label { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: .75; margin: 14px 0 8px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .swatch {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    position: relative;
+  }
+  .swatch.sel { border-color: #fff; transform: scale(1.05); box-shadow: 0 0 0 2px rgba(0,0,0,.3); }
+  .bg-opt {
+    width: 64px; height: 44px;
+    border-radius: 10px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .bg-opt.sel { border-color: #fff; transform: scale(1.05); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">0</div>
+  <div id="gear" role="button" aria-label="Cài đặt">⚙️</div>
+
+  <!-- Start screen -->
+  <div class="overlay active" id="startScreen">
+    <div class="panel">
+      <h1>Flappie<span class="em">Bus</span> 🚌</h1>
+      <div class="sub">Chiếc xe buýt có cánh!</div>
+      <button class="btn-primary" id="playBtn">CHƠI ▶</button>
+      <div><button class="btn-ghost" id="settingsBtn">⚙️ Cài đặt</button></div>
+      <div class="hint">Chạm màn hình / nhấn Space để bay lên</div>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div class="overlay" id="overScreen">
+    <div class="panel">
+      <h1 style="font-size:30px">💥 Toang rồi!</h1>
+      <div class="big-score" id="finalScore">0</div>
+      <div class="best" id="bestScore">Kỷ lục: 0</div>
+      <button class="btn-primary" id="retryBtn">CHƠI LẠI 🔄</button>
+      <div><button class="btn-ghost" id="overSettingsBtn">⚙️ Cài đặt</button></div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="overlay" id="settingsScreen">
+    <div class="panel">
+      <div class="settings-title">⚙️ Cài đặt</div>
+      <div class="section-label">Màu xe buýt</div>
+      <div class="swatches" id="busColors"></div>
+      <div class="section-label">Nền (Background)</div>
+      <div class="swatches" id="bgOptions"></div>
+      <div style="margin-top:22px"><button class="btn-primary" id="closeSettings">XONG ✓</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  // ---------- Logical resolution (portrait) ----------
+  const W = 400, H = 700;
+  canvas.width = W;
+  canvas.height = H;
+
+  function fit() {
+    const ratio = W / H;
+    let w = window.innerWidth, h = window.innerHeight;
+    if (w / h > ratio) w = h * ratio; else h = w / ratio;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+  }
+  window.addEventListener("resize", fit);
+  fit();
+
+  // ---------- Settings / customization ----------
+  const BUS_COLORS = [
+    { name: "Vàng", body: "#f7c948", stripe: "#e8a200" },
+    { name: "Đỏ", body: "#e74c3c", stripe: "#a93226" },
+    { name: "Xanh dương", body: "#3498db", stripe: "#21618c" },
+    { name: "Xanh lá", body: "#2ecc71", stripe: "#1e8449" },
+    { name: "Tím", body: "#9b59b6", stripe: "#6c3483" },
+    { name: "Hồng", body: "#ff6fb5", stripe: "#d44a8a" },
+    { name: "Cam", body: "#ff8c2b", stripe: "#cc6a12" },
+    { name: "Đen", body: "#34495e", stripe: "#1c2833" },
+  ];
+
+  // Backgrounds: gradient sky [top,bottom], ground color, accent (clouds/sun), emoji label
+  const BACKGROUNDS = [
+    { name: "Ngày", emoji: "☀️", sky: ["#4ec0ca", "#9be7d4"], ground: "#ded895", groundTop: "#b9b35f", cloud: "#ffffff", sun: "#fff3a0", sunGlow: true, particle: "cloud" },
+    { name: "Hoàng hôn", emoji: "🌇", sky: ["#ff9a5a", "#ffd28a"], ground: "#7b5e3b", groundTop: "#5e472b", cloud: "#ffe0c2", sun: "#ff6b4a", sunGlow: true, particle: "cloud" },
+    { name: "Đêm", emoji: "🌙", sky: ["#0f2027", "#2c5364"], ground: "#1b2a33", groundTop: "#0e1a20", cloud: "#3a4a55", sun: "#f5f3ce", sunGlow: false, particle: "star" },
+    { name: "Vũ trụ", emoji: "🪐", sky: ["#1a0033", "#4b0082"], ground: "#241040", groundTop: "#160a28", cloud: "#5a2a82", sun: "#ffd1f5", sunGlow: true, particle: "star" },
+  ];
+
+  const store = {
+    get bus() { return clampIdx(+localStorage.getItem("fb_bus") || 0, BUS_COLORS.length); },
+    set bus(v) { localStorage.setItem("fb_bus", v); },
+    get bg() { return clampIdx(+localStorage.getItem("fb_bg") || 0, BACKGROUNDS.length); },
+    set bg(v) { localStorage.setItem("fb_bg", v); },
+    get best() { return +localStorage.getItem("fb_best") || 0; },
+    set best(v) { localStorage.setItem("fb_best", v); },
+  };
+  function clampIdx(i, n) { return (i < 0 || i >= n || isNaN(i)) ? 0 : i; }
+
+  // ---------- Game constants ----------
+  const GRAVITY = 0.45;
+  const FLAP = -7.6;
+  const PIPE_W = 70;
+  const GAP = 200;
+  const PIPE_SPEED = 2.6;
+  const PIPE_INTERVAL = 100; // frames between pipes
+  const GROUND_H = 90;
+  const BUS_W = 60, BUS_H = 38;
+
+  // ---------- State ----------
+  const STATE = { MENU: 0, PLAY: 1, OVER: 2, SETTINGS: 3 };
+  let state = STATE.MENU;
+  let prevStateForSettings = STATE.MENU;
+
+  const bus = { x: 110, y: H / 2, vy: 0, rot: 0 };
+  let pipes = [];
+  let frame = 0;
+  let score = 0;
+  let groundX = 0;
+  let particles = []; // background clouds/stars
+
+  function initParticles() {
+    particles = [];
+    const bg = BACKGROUNDS[store.bg];
+    const count = bg.particle === "star" ? 60 : 5;
+    for (let i = 0; i < count; i++) {
+      if (bg.particle === "star") {
+        particles.push({ x: Math.random() * W, y: Math.random() * (H - GROUND_H), r: Math.random() * 1.6 + 0.4, tw: Math.random() * Math.PI * 2 });
+      } else {
+        particles.push({ x: Math.random() * W, y: 60 + Math.random() * 220, s: 0.4 + Math.random() * 0.6, scale: 0.7 + Math.random() * 0.8 });
+      }
+    }
+  }
+
+  function reset() {
+    bus.y = H / 2; bus.vy = 0; bus.rot = 0;
+    pipes = [];
+    frame = 0;
+    score = 0;
+    hud.textContent = "0";
+  }
+
+  // ---------- Input ----------
+  function flap() {
+    if (state === STATE.PLAY) {
+      bus.vy = FLAP;
+    }
+  }
+  function onPress(e) {
+    if (state === STATE.SETTINGS) return; // buttons handle it
+    if (e) e.preventDefault();
+    if (state === STATE.PLAY) flap();
+  }
+  canvas.addEventListener("mousedown", onPress);
+  canvas.addEventListener("touchstart", onPress, { passive: false });
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "ArrowUp") {
+      e.preventDefault();
+      if (state === STATE.MENU) startGame();
+      else if (state === STATE.PLAY) flap();
+      else if (state === STATE.OVER) startGame();
+    }
+  });
+
+  // ---------- Screens / UI ----------
+  const startScreen = document.getElementById("startScreen");
+  const overScreen = document.getElementById("overScreen");
+  const settingsScreen = document.getElementById("settingsScreen");
+  const hud = document.getElementById("hud");
+  const gear = document.getElementById("gear");
+
+  function show(el) { el.classList.add("active"); }
+  function hide(el) { el.classList.remove("active"); }
+
+  function setState(s) {
+    state = s;
+    hide(startScreen); hide(overScreen); hide(settingsScreen);
+    hud.style.display = "none";
+    gear.style.display = "none";
+    if (s === STATE.MENU) { show(startScreen); gear.style.display = "flex"; }
+    else if (s === STATE.PLAY) { hud.style.display = "block"; }
+    else if (s === STATE.OVER) { show(overScreen); }
+    else if (s === STATE.SETTINGS) { show(settingsScreen); }
+  }
+
+  function startGame() {
+    reset();
+    setState(STATE.PLAY);
+    // give a first flap so it doesn't instantly drop
+    bus.vy = FLAP * 0.7;
+  }
+
+  function gameOver() {
+    setState(STATE.OVER);
+    document.getElementById("finalScore").textContent = score;
+    if (score > store.best) store.best = score;
+    document.getElementById("bestScore").textContent = "Kỷ lục: " + store.best;
+  }
+
+  document.getElementById("playBtn").addEventListener("click", startGame);
+  document.getElementById("retryBtn").addEventListener("click", startGame);
+  document.getElementById("settingsBtn").addEventListener("click", openSettings);
+  document.getElementById("overSettingsBtn").addEventListener("click", openSettings);
+  gear.addEventListener("click", openSettings);
+  document.getElementById("closeSettings").addEventListener("click", closeSettings);
+
+  function openSettings() {
+    prevStateForSettings = (state === STATE.OVER) ? STATE.OVER : STATE.MENU;
+    setState(STATE.SETTINGS);
+  }
+  function closeSettings() {
+    setState(prevStateForSettings);
+  }
+
+  // Build settings swatches
+  const busColorsEl = document.getElementById("busColors");
+  BUS_COLORS.forEach((c, i) => {
+    const d = document.createElement("div");
+    d.className = "swatch" + (i === store.bus ? " sel" : "");
+    d.style.background = c.body;
+    d.title = c.name;
+    d.addEventListener("click", () => {
+      store.bus = i;
+      [...busColorsEl.children].forEach(x => x.classList.remove("sel"));
+      d.classList.add("sel");
+    });
+    busColorsEl.appendChild(d);
+  });
+
+  const bgOptionsEl = document.getElementById("bgOptions");
+  BACKGROUNDS.forEach((b, i) => {
+    const d = document.createElement("div");
+    d.className = "bg-opt" + (i === store.bg ? " sel" : "");
+    d.style.background = "linear-gradient(" + b.sky[0] + "," + b.sky[1] + ")";
+    d.title = b.name;
+    d.textContent = b.emoji;
+    d.addEventListener("click", () => {
+      store.bg = i;
+      initParticles();
+      [...bgOptionsEl.children].forEach(x => x.classList.remove("sel"));
+      d.classList.add("sel");
+    });
+    bgOptionsEl.appendChild(d);
+  });
+
+  // ---------- Update ----------
+  function spawnPipe() {
+    const minTop = 60;
+    const maxTop = H - GROUND_H - GAP - 60;
+    const top = minTop + Math.random() * (maxTop - minTop);
+    pipes.push({ x: W, top: top, scored: false });
+  }
+
+  function update() {
+    if (state !== STATE.PLAY) return;
+    frame++;
+
+    bus.vy += GRAVITY;
+    bus.y += bus.vy;
+    bus.rot = Math.max(-0.4, Math.min(1.4, bus.vy * 0.05));
+
+    if (frame % PIPE_INTERVAL === 0) spawnPipe();
+
+    for (let i = pipes.length - 1; i >= 0; i--) {
+      const p = pipes[i];
+      p.x -= PIPE_SPEED;
+
+      if (!p.scored && p.x + PIPE_W < bus.x) {
+        p.scored = true;
+        score++;
+        hud.textContent = score;
+      }
+      if (p.x + PIPE_W < -10) pipes.splice(i, 1);
+
+      // collision
+      const bx = bus.x - BUS_W / 2 + 6, bw = BUS_W - 12;
+      const by = bus.y - BUS_H / 2 + 4, bh = BUS_H - 8;
+      if (bx + bw > p.x && bx < p.x + PIPE_W) {
+        if (by < p.top || by + bh > p.top + GAP) {
+          return gameOver();
+        }
+      }
+    }
+
+    // ground / ceiling
+    if (bus.y + BUS_H / 2 >= H - GROUND_H) {
+      bus.y = H - GROUND_H - BUS_H / 2;
+      return gameOver();
+    }
+    if (bus.y - BUS_H / 2 < 0) {
+      bus.y = BUS_H / 2;
+      bus.vy = 0;
+    }
+
+    groundX = (groundX - PIPE_SPEED) % 24;
+  }
+
+  // ---------- Draw ----------
+  function drawBackground() {
+    const bg = BACKGROUNDS[store.bg];
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, bg.sky[0]);
+    g.addColorStop(1, bg.sky[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // sun / moon
+    if (bg.sunGlow) {
+      const sx = 320, sy = 110, r = 46;
+      const gg = ctx.createRadialGradient(sx, sy, 4, sx, sy, r * 2.2);
+      gg.addColorStop(0, bg.sun);
+      gg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = bg.sun;
+    ctx.beginPath(); ctx.arc(320, 110, 38, 0, Math.PI * 2); ctx.fill();
+    if (bg.name === "Đêm") { // crescent
+      ctx.fillStyle = bg.sky[0];
+      ctx.beginPath(); ctx.arc(335, 100, 36, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // particles (clouds or stars)
+    if (bg.particle === "star") {
+      particles.forEach(s => {
+        s.tw += 0.05;
+        const a = 0.4 + Math.abs(Math.sin(s.tw)) * 0.6;
+        ctx.fillStyle = "rgba(255,255,255," + a + ")";
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+      });
+    } else {
+      particles.forEach(c => {
+        if (state === STATE.PLAY) c.x -= c.s;
+        if (c.x < -60) { c.x = W + 40; c.y = 50 + Math.random() * 220; }
+        drawCloud(c.x, c.y, c.scale, bg.cloud);
+      });
+    }
+  }
+
+  function drawCloud(x, y, s, color) {
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(x, y, 18 * s, 0, Math.PI * 2);
+    ctx.arc(x + 20 * s, y + 4 * s, 24 * s, 0, Math.PI * 2);
+    ctx.arc(x + 46 * s, y, 18 * s, 0, Math.PI * 2);
+    ctx.rect(x, y, 46 * s, 18 * s);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPipe(p) {
+    const bg = BACKGROUNDS[store.bg];
+    const dark = bg.name === "Vũ trụ";
+    const grad = ctx.createLinearGradient(p.x, 0, p.x + PIPE_W, 0);
+    if (dark) {
+      grad.addColorStop(0, "#7d3cad"); grad.addColorStop(0.5, "#a85fd6"); grad.addColorStop(1, "#5a2a82");
+    } else {
+      grad.addColorStop(0, "#5aa83c"); grad.addColorStop(0.5, "#8ed86a"); grad.addColorStop(1, "#4e9433");
+    }
+    const lip = 18, lipW = PIPE_W + 8;
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = "rgba(0,0,0,.25)";
+    ctx.lineWidth = 2;
+
+    // top pipe
+    ctx.fillRect(p.x, 0, PIPE_W, p.top - lip);
+    ctx.strokeRect(p.x, 0, PIPE_W, p.top - lip);
+    ctx.fillRect(p.x - 4, p.top - lip, lipW, lip);
+    ctx.strokeRect(p.x - 4, p.top - lip, lipW, lip);
+
+    // bottom pipe
+    const by = p.top + GAP;
+    const bh = H - GROUND_H - by;
+    ctx.fillRect(p.x, by + lip, PIPE_W, bh - lip);
+    ctx.strokeRect(p.x, by + lip, PIPE_W, bh - lip);
+    ctx.fillRect(p.x - 4, by, lipW, lip);
+    ctx.strokeRect(p.x - 4, by, lipW, lip);
+  }
+
+  function drawGround() {
+    const bg = BACKGROUNDS[store.bg];
+    const y = H - GROUND_H;
+    ctx.fillStyle = bg.groundTop;
+    ctx.fillRect(0, y, W, 12);
+    ctx.fillStyle = bg.ground;
+    ctx.fillRect(0, y + 12, W, GROUND_H - 12);
+    // dashes
+    ctx.fillStyle = "rgba(255,255,255,.25)";
+    for (let x = groundX; x < W; x += 24) {
+      ctx.fillRect(x, y + 4, 12, 4);
+    }
+  }
+
+  function drawBus() {
+    const c = BUS_COLORS[store.bus];
+    ctx.save();
+    ctx.translate(bus.x, bus.y);
+    ctx.rotate(bus.rot);
+
+    const w = BUS_W, h = BUS_H;
+    const x = -w / 2, y = -h / 2;
+    const r = 8;
+
+    // wing (behind), flaps with frame
+    const flapY = Math.sin(frame * 0.4) * 6;
+    ctx.fillStyle = "rgba(255,255,255,.92)";
+    ctx.strokeStyle = "rgba(0,0,0,.2)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + 12, y + 6);
+    ctx.quadraticCurveTo(x - 18, y - 14 + flapY, x - 4, y + 14);
+    ctx.quadraticCurveTo(x + 4, y + 8, x + 12, y + 6);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // body
+    ctx.fillStyle = c.body;
+    roundRect(x, y, w, h, r); ctx.fill();
+    // roof shade
+    ctx.fillStyle = "rgba(255,255,255,.18)";
+    roundRect(x, y, w, h * 0.4, r); ctx.fill();
+    // stripe
+    ctx.fillStyle = c.stripe;
+    ctx.fillRect(x, y + h * 0.58, w, 5);
+
+    // windows
+    ctx.fillStyle = "#bfe9ff";
+    const wy = y + 7, wh = 12;
+    for (let i = 0; i < 3; i++) {
+      roundRect(x + 8 + i * 13, wy, 10, wh, 2); ctx.fill();
+    }
+    // driver window front
+    ctx.fillStyle = "#dff4ff";
+    roundRect(x + w - 14, wy, 9, wh, 2); ctx.fill();
+
+    // headlight
+    ctx.fillStyle = "#fff27a";
+    ctx.beginPath(); ctx.arc(x + w - 3, y + h - 12, 3.5, 0, Math.PI * 2); ctx.fill();
+
+    // outline
+    ctx.strokeStyle = "rgba(0,0,0,.28)";
+    ctx.lineWidth = 2;
+    roundRect(x, y, w, h, r); ctx.stroke();
+
+    // wheels
+    ctx.fillStyle = "#222";
+    ctx.beginPath(); ctx.arc(x + 14, y + h, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w - 14, y + h, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#888";
+    ctx.beginPath(); ctx.arc(x + 14, y + h, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + w - 14, y + h, 2.4, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function draw() {
+    drawBackground();
+    pipes.forEach(drawPipe);
+    drawGround();
+    drawBus();
+  }
+
+  // ---------- Loop ----------
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  initParticles();
+  setState(STATE.MENU);
+  loop();
+})();
+</script>
+</body>
+</html>
