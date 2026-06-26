@@ -211,7 +211,6 @@
       <div class="sub">Chiếc xe buýt có cánh!</div>
       <div class="best" id="menuCredits">🪙 0 credit</div>
       <div class="best" id="menuBuffs">👻 x0 · ❤️ x0</div>
-      <div class="best" id="menuWelcome" style="display:none;color:#ffd34e">🎁 Tặng bạn 2 buff dùng thử! Mở 🛒 Cửa hàng để xem</div>
       <button class="btn-primary" id="playBtn">CHƠI ▶</button>
       <div>
         <button class="btn-ghost" id="shopBtn">🛒 Cửa hàng</button>
@@ -367,7 +366,6 @@
   let particles = []; // background clouds/stars
   let ghostTimer = 0;   // frames left of "pass through buildings"
   let invincTimer = 0;  // frames left of post-revive invincibility
-  let justGranted = false; // show welcome gift note on the menu once
 
   function initParticles() {
     particles = [];
@@ -440,7 +438,6 @@
       show(startScreen); gear.style.display = "flex";
       document.getElementById("menuCredits").textContent = "🪙 " + store.credits + " credit";
       document.getElementById("menuBuffs").textContent = "👻 x" + store.ghost + "  ·  ❤️ x" + store.life;
-      document.getElementById("menuWelcome").style.display = justGranted ? "block" : "none";
     } else if (s === STATE.PLAY) {
       hud.style.display = "block";
       creditHud.style.display = "block";
@@ -872,15 +869,6 @@
     while (acc >= STEP && steps < 5) { update(); acc -= STEP; steps++; }
     draw();
     requestAnimationFrame(loop);
-  }
-
-  // First-time players (and anyone not granted yet) get 2 of each buff to try.
-  // Uses Math.max so it never reduces buffs you already own.
-  if (localStorage.getItem("fb_welcome") === null) {
-    localStorage.setItem("fb_welcome", "1");
-    store.ghost = Math.max(store.ghost, 2);
-    store.life = Math.max(store.life, 2);
-    justGranted = true;
   }
 
   initParticles();
