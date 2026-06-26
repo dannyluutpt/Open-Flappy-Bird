@@ -147,6 +147,47 @@
     font-size: 20px;
   }
   .bg-opt.sel { border-color: #fff; transform: scale(1.05); }
+
+  /* Shop */
+  .credits-badge { font-size: 18px; font-weight: 800; margin-bottom: 14px; }
+  .credits-badge .c { color: #ffd34e; }
+  .shop-item {
+    display: flex; align-items: center; gap: 12px; text-align: left;
+    background: rgba(255,255,255,.09); border-radius: 14px;
+    padding: 12px 14px; margin-bottom: 12px;
+  }
+  .shop-item .ic { font-size: 30px; line-height: 1; }
+  .shop-item .info { flex: 1; min-width: 0; }
+  .shop-item .nm { font-weight: 700; font-size: 16px; }
+  .shop-item .ds { font-size: 12px; opacity: .82; margin-top: 2px; }
+  .shop-item .own { font-size: 12px; opacity: .95; margin-top: 3px; }
+  .buy-btn {
+    background: linear-gradient(#ffd34e, #f7b733); color: #5a3b00;
+    padding: 9px 13px; border-radius: 12px; font-size: 14px; font-weight: 700;
+    box-shadow: 0 4px 0 #c98a16; white-space: nowrap;
+  }
+  .buy-btn:disabled { filter: grayscale(.6) brightness(.85); box-shadow: none; cursor: default; opacity: .6; }
+
+  /* In-play credit + buff bar */
+  #creditHud {
+    position: absolute; top: 18px; left: 14px; display: none;
+    background: rgba(0,0,0,.4); color: #ffd34e; font-weight: 800;
+    padding: 6px 12px; border-radius: 20px; font-size: 15px; z-index: 5;
+  }
+  #playbar {
+    position: absolute; left: 0; right: 0; bottom: 16px;
+    display: none; gap: 12px; justify-content: center;
+    pointer-events: none; z-index: 6;
+  }
+  #playbar .bbtn {
+    pointer-events: auto; cursor: pointer;
+    background: rgba(0,0,0,.5); color: #fff;
+    border: 2px solid rgba(255,255,255,.25); border-radius: 30px;
+    padding: 10px 16px; font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #playbar .bbtn:disabled { opacity: .4; cursor: default; }
+  #playbar .bbtn.act { background: rgba(124,84,210,.9); border-color: #fff; }
 </style>
 </head>
 <body>
@@ -155,14 +196,25 @@
 
   <div id="hud">0</div>
   <div id="gear" role="button" aria-label="Cài đặt">⚙️</div>
+  <div id="creditHud">🪙 <span id="creditHudVal">0</span></div>
+
+  <!-- In-play buff bar -->
+  <div id="playbar">
+    <button class="bbtn" id="ghostBtn">👻 Xuyên nhà <span id="ghostCount">0</span></button>
+    <button class="bbtn" id="lifeBtn" disabled>❤️ Mạng <span id="lifeCount">0</span></button>
+  </div>
 
   <!-- Start screen -->
   <div class="overlay active" id="startScreen">
     <div class="panel">
       <h1>Flappie<span class="em">Bus</span> 🚌</h1>
       <div class="sub">Chiếc xe buýt có cánh!</div>
+      <div class="best" id="menuCredits">🪙 0 credit</div>
       <button class="btn-primary" id="playBtn">CHƠI ▶</button>
-      <div><button class="btn-ghost" id="settingsBtn">⚙️ Cài đặt</button></div>
+      <div>
+        <button class="btn-ghost" id="shopBtn">🛒 Cửa hàng</button>
+        <button class="btn-ghost" id="settingsBtn">⚙️ Cài đặt</button>
+      </div>
       <div class="hint">Chạm màn hình / nhấn Space để bay lên</div>
     </div>
   </div>
@@ -172,9 +224,42 @@
     <div class="panel">
       <h1 style="font-size:30px">💥 Toang rồi!</h1>
       <div class="big-score" id="finalScore">0</div>
+      <div class="best" id="creditEarned">+0 credit</div>
       <div class="best" id="bestScore">Kỷ lục: 0</div>
       <button class="btn-primary" id="retryBtn">CHƠI LẠI 🔄</button>
-      <div><button class="btn-ghost" id="overSettingsBtn">⚙️ Cài đặt</button></div>
+      <div>
+        <button class="btn-ghost" id="overShopBtn">🛒 Cửa hàng</button>
+        <button class="btn-ghost" id="overSettingsBtn">⚙️ Cài đặt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop -->
+  <div class="overlay" id="shopScreen">
+    <div class="panel">
+      <div class="settings-title">🛒 Cửa hàng</div>
+      <div class="credits-badge">Số dư: <span class="c" id="shopCredits">0</span> 🪙</div>
+      <div id="shopItems">
+        <div class="shop-item">
+          <div class="ic">👻</div>
+          <div class="info">
+            <div class="nm">Xuyên nhà</div>
+            <div class="ds">Bay xuyên qua tòa nhà trong 4 giây. Bấm nút 👻 để kích hoạt khi đang chơi.</div>
+            <div class="own">Đang có: <span id="ownGhost">0</span></div>
+          </div>
+          <button class="buy-btn" id="buyGhost">30 🪙</button>
+        </div>
+        <div class="shop-item">
+          <div class="ic">❤️</div>
+          <div class="info">
+            <div class="nm">Thêm mạng</div>
+            <div class="ds">Tự hồi sinh 1 lần khi va chạm. Dùng tự động trong lúc chơi.</div>
+            <div class="own">Đang có: <span id="ownLife">0</span></div>
+          </div>
+          <button class="buy-btn" id="buyLife">30 🪙</button>
+        </div>
+      </div>
+      <div style="margin-top:6px"><button class="btn-primary" id="closeShop">XONG ✓</button></div>
     </div>
   </div>
 
@@ -243,6 +328,12 @@
     set bg(v) { localStorage.setItem("fb_bg", v); },
     get best() { return +localStorage.getItem("fb_best") || 0; },
     set best(v) { localStorage.setItem("fb_best", v); },
+    get credits() { return +localStorage.getItem("fb_credits") || 0; },
+    set credits(v) { localStorage.setItem("fb_credits", Math.max(0, Math.floor(v))); },
+    get ghost() { return +localStorage.getItem("fb_ghost") || 0; },
+    set ghost(v) { localStorage.setItem("fb_ghost", Math.max(0, Math.floor(v))); },
+    get life() { return +localStorage.getItem("fb_life") || 0; },
+    set life(v) { localStorage.setItem("fb_life", Math.max(0, Math.floor(v))); },
   };
   function clampIdx(i, n) { return (i < 0 || i >= n || isNaN(i)) ? 0 : i; }
 
@@ -256,10 +347,15 @@
   const GROUND_H = 90;
   const BUS_W = 60, BUS_H = 38;
 
+  // ---------- Buffs ----------
+  const BUFF_COST = 30;
+  const GHOST_DURATION = 4 * 60; // 4s of phasing through buildings (frames @60fps)
+  const REVIVE_INVINC = 90;      // brief invincibility after an extra-life revive
+
   // ---------- State ----------
-  const STATE = { MENU: 0, PLAY: 1, OVER: 2, SETTINGS: 3 };
+  const STATE = { MENU: 0, PLAY: 1, OVER: 2, SETTINGS: 3, SHOP: 4 };
   let state = STATE.MENU;
-  let prevStateForSettings = STATE.MENU;
+  let prevReturnState = STATE.MENU; // where to go back after settings/shop
 
   const bus = { x: 110, y: H / 2, vy: 0, rot: 0 };
   let pipes = [];
@@ -267,6 +363,8 @@
   let score = 0;
   let groundX = 0;
   let particles = []; // background clouds/stars
+  let ghostTimer = 0;   // frames left of "pass through buildings"
+  let invincTimer = 0;  // frames left of post-revive invincibility
 
   function initParticles() {
     particles = [];
@@ -286,7 +384,10 @@
     pipes = [];
     frame = 0;
     score = 0;
+    ghostTimer = 0;
+    invincTimer = 0;
     hud.textContent = "0";
+    updatePlayUI();
   }
 
   // ---------- Input ----------
@@ -315,21 +416,34 @@
   const startScreen = document.getElementById("startScreen");
   const overScreen = document.getElementById("overScreen");
   const settingsScreen = document.getElementById("settingsScreen");
+  const shopScreen = document.getElementById("shopScreen");
   const hud = document.getElementById("hud");
   const gear = document.getElementById("gear");
+  const creditHud = document.getElementById("creditHud");
+  const playbar = document.getElementById("playbar");
+  const ghostBtn = document.getElementById("ghostBtn");
 
   function show(el) { el.classList.add("active"); }
   function hide(el) { el.classList.remove("active"); }
 
   function setState(s) {
     state = s;
-    hide(startScreen); hide(overScreen); hide(settingsScreen);
+    hide(startScreen); hide(overScreen); hide(settingsScreen); hide(shopScreen);
     hud.style.display = "none";
     gear.style.display = "none";
-    if (s === STATE.MENU) { show(startScreen); gear.style.display = "flex"; }
-    else if (s === STATE.PLAY) { hud.style.display = "block"; }
-    else if (s === STATE.OVER) { show(overScreen); }
+    creditHud.style.display = "none";
+    playbar.style.display = "none";
+    if (s === STATE.MENU) {
+      show(startScreen); gear.style.display = "flex";
+      document.getElementById("menuCredits").textContent = "🪙 " + store.credits + " credit";
+    } else if (s === STATE.PLAY) {
+      hud.style.display = "block";
+      creditHud.style.display = "block";
+      playbar.style.display = "flex";
+      updatePlayUI();
+    } else if (s === STATE.OVER) { show(overScreen); }
     else if (s === STATE.SETTINGS) { show(settingsScreen); }
+    else if (s === STATE.SHOP) { renderShop(); show(shopScreen); }
   }
 
   function startGame() {
@@ -341,7 +455,10 @@
 
   function gameOver() {
     setState(STATE.OVER);
+    // earn credits equal to the round's score
+    if (score > 0) store.credits = store.credits + score;
     document.getElementById("finalScore").textContent = score;
+    document.getElementById("creditEarned").textContent = "+" + score + " credit  (tổng: " + store.credits + " 🪙)";
     if (score > store.best) store.best = score;
     document.getElementById("bestScore").textContent = "Kỷ lục: " + store.best;
   }
@@ -351,14 +468,73 @@
   document.getElementById("settingsBtn").addEventListener("click", openSettings);
   document.getElementById("overSettingsBtn").addEventListener("click", openSettings);
   gear.addEventListener("click", openSettings);
-  document.getElementById("closeSettings").addEventListener("click", closeSettings);
+  document.getElementById("closeSettings").addEventListener("click", closeReturn);
+  document.getElementById("shopBtn").addEventListener("click", openShop);
+  document.getElementById("overShopBtn").addEventListener("click", openShop);
+  document.getElementById("closeShop").addEventListener("click", closeReturn);
 
   function openSettings() {
-    prevStateForSettings = (state === STATE.OVER) ? STATE.OVER : STATE.MENU;
+    prevReturnState = (state === STATE.OVER) ? STATE.OVER : STATE.MENU;
     setState(STATE.SETTINGS);
   }
-  function closeSettings() {
-    setState(prevStateForSettings);
+  function openShop() {
+    prevReturnState = (state === STATE.OVER) ? STATE.OVER : STATE.MENU;
+    setState(STATE.SHOP);
+  }
+  function closeReturn() { setState(prevReturnState); }
+
+  // ---------- Shop ----------
+  function renderShop() {
+    document.getElementById("shopCredits").textContent = store.credits;
+    document.getElementById("ownGhost").textContent = store.ghost;
+    document.getElementById("ownLife").textContent = store.life;
+    document.getElementById("buyGhost").disabled = store.credits < BUFF_COST;
+    document.getElementById("buyLife").disabled = store.credits < BUFF_COST;
+  }
+  document.getElementById("buyGhost").addEventListener("click", function () {
+    if (store.credits < BUFF_COST) return;
+    store.credits = store.credits - BUFF_COST;
+    store.ghost = store.ghost + 1;
+    renderShop();
+  });
+  document.getElementById("buyLife").addEventListener("click", function () {
+    if (store.credits < BUFF_COST) return;
+    store.credits = store.credits - BUFF_COST;
+    store.life = store.life + 1;
+    renderShop();
+  });
+
+  // ---------- Buff usage (in play) ----------
+  function updatePlayUI() {
+    document.getElementById("creditHudVal").textContent = store.credits;
+    const active = ghostTimer > 0;
+    ghostBtn.disabled = !active && store.ghost <= 0;
+    ghostBtn.classList.toggle("act", active);
+    ghostBtn.innerHTML = active ? "👻 Đang xuyên…" : "👻 Xuyên nhà <span>" + store.ghost + "</span>";
+    document.getElementById("lifeCount").textContent = store.life;
+  }
+  function activateGhost() {
+    if (state !== STATE.PLAY || ghostTimer > 0 || store.ghost <= 0) return;
+    store.ghost = store.ghost - 1;
+    ghostTimer = GHOST_DURATION;
+    updatePlayUI();
+  }
+  ghostBtn.addEventListener("pointerdown", function (e) {
+    e.preventDefault(); e.stopPropagation();
+    activateGhost();
+  });
+
+  // On a crash: spend an extra life to revive if available, else game over.
+  function crash() {
+    if (store.life > 0) {
+      store.life = store.life - 1;
+      invincTimer = REVIVE_INVINC;
+      if (bus.y > H - GROUND_H - 80) bus.y = H / 2; // lift off the ground
+      bus.vy = FLAP;
+      updatePlayUI();
+      return;
+    }
+    gameOver();
   }
 
   // Build settings swatches
@@ -397,12 +573,17 @@
     const minTop = 60;
     const maxTop = H - GROUND_H - GAP - 60;
     const top = minTop + Math.random() * (maxTop - minTop);
-    pipes.push({ x: W, top: top, scored: false });
+    // fixed seed per building so its lit windows stay constant (no flicker)
+    pipes.push({ x: W, top: top, scored: false, seed: Math.floor(Math.random() * 100000) });
   }
 
   function update() {
     if (state !== STATE.PLAY) return;
     frame++;
+
+    if (ghostTimer > 0) { ghostTimer--; if (ghostTimer === 0) updatePlayUI(); }
+    if (invincTimer > 0) invincTimer--;
+    const phasing = ghostTimer > 0 || invincTimer > 0; // ignore building hits
 
     bus.vy += GRAVITY;
     bus.y += bus.vy;
@@ -421,12 +602,14 @@
       }
       if (p.x + PIPE_W < -10) pipes.splice(i, 1);
 
-      // collision
-      const bx = bus.x - BUS_W / 2 + 6, bw = BUS_W - 12;
-      const by = bus.y - BUS_H / 2 + 4, bh = BUS_H - 8;
-      if (bx + bw > p.x && bx < p.x + PIPE_W) {
-        if (by < p.top || by + bh > p.top + GAP) {
-          return gameOver();
+      // collision with buildings (skipped while phasing)
+      if (!phasing) {
+        const bx = bus.x - BUS_W / 2 + 6, bw = BUS_W - 12;
+        const by = bus.y - BUS_H / 2 + 4, bh = BUS_H - 8;
+        if (bx + bw > p.x && bx < p.x + PIPE_W) {
+          if (by < p.top || by + bh > p.top + GAP) {
+            return crash();
+          }
         }
       }
     }
@@ -434,7 +617,8 @@
     // ground / ceiling
     if (bus.y + BUS_H / 2 >= H - GROUND_H) {
       bus.y = H - GROUND_H - BUS_H / 2;
-      return gameOver();
+      if (invincTimer > 0) { bus.vy = FLAP; } // bounce while reviving
+      else return crash();
     }
     if (bus.y - BUS_H / 2 < 0) {
       bus.y = BUS_H / 2;
@@ -535,7 +719,7 @@
     const bodyStart = roofOnTop ? top + roofH + 6 : top + 6;
     const bodyEnd = roofOnTop ? top + h - 6 : top + h - roofH - 6;
     // deterministic "lit" pattern per tower so windows don't flicker
-    let seed = Math.floor(p.x) * 2 + (roofOnTop ? 1 : 0);
+    let seed = (p.seed || 0) + (roofOnTop ? 1 : 0);
     let r = 0;
     for (let wy = bodyStart; wy + winH <= bodyEnd; wy += rowGap, r++) {
       for (let ci = 0; ci < 2; ci++) {
@@ -576,6 +760,9 @@
   function drawBus() {
     const c = BUS_COLORS[store.bus];
     ctx.save();
+    // translucent while phasing through buildings; blink right after a revive
+    if (ghostTimer > 0) ctx.globalAlpha = 0.45;
+    else if (invincTimer > 0) ctx.globalAlpha = (Math.floor(invincTimer / 6) % 2) ? 0.35 : 1;
     ctx.translate(bus.x, bus.y);
     ctx.rotate(bus.rot);
 
