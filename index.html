@@ -652,16 +652,24 @@
     drawBus();
   }
 
-  // ---------- Loop ----------
-  function loop() {
-    update();
+  // ---------- Loop (fixed 60fps physics, independent of display refresh rate) ----------
+  const STEP = 1000 / 60; // ms per physics tick
+  let lastTime = 0, acc = 0;
+  function loop(now) {
+    if (!lastTime) lastTime = now;
+    let dt = now - lastTime;
+    lastTime = now;
+    if (dt > 250) dt = 250; // clamp after tab switch / lag so it doesn't fast-forward
+    acc += dt;
+    let steps = 0;
+    while (acc >= STEP && steps < 5) { update(); acc -= STEP; steps++; }
     draw();
     requestAnimationFrame(loop);
   }
 
   initParticles();
   setState(STATE.MENU);
-  loop();
+  requestAnimationFrame(loop);
 })();
 </script>
 </body>
