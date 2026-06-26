@@ -583,23 +583,38 @@
     // buff timers run in real time (once per tick)
     if (ghostTimer > 0) { ghostTimer--; if (ghostTimer === 0) updatePlayUI(); }
     if (invincTimer > 0) invincTimer--;
+    const phasing = ghostTimer > 0 || invincTimer > 0;
 
-    // Ghost buff runs the world at 2x: step the physics twice this tick.
-    const physicsSteps = ghostTimer > 0 ? 2 : 1;
-    for (let s = 0; s < physicsSteps; s++) {
-      if (stepPhysics() === "stop") break;
-    }
-  }
-
-  // One physics step. Returns "stop" if it should not run again this tick.
-  function stepPhysics() {
-    frame++;
-    const phasing = ghostTimer > 0 || invincTimer > 0; // ignore building hits
-
+    // Vertical motion always at normal speed so the bus stays controllable
+    // (the ghost buff speeds up the *world*, not the falling).
     bus.vy += GRAVITY;
     bus.y += bus.vy;
     bus.rot = Math.max(-0.4, Math.min(1.4, bus.vy * 0.05));
 
+    // Horizontal world scroll: 2x while the ghost buff is active.
+    const worldSteps = ghostTimer > 0 ? 2 : 1;
+    for (let s = 0; s < worldSteps; s++) {
+      if (stepWorld(phasing) === "stop") return;
+    }
+
+    // ground / ceiling (checked once per tick, against current bus.y)
+    if (bus.y + BUS_H / 2 >= H - GROUND_H) {
+      bus.y = H - GROUND_H - BUS_H / 2;
+      if (phasing) { bus.vy = FLAP; }      // don't die on the ground while buffed
+      else { crash(); return; }
+    }
+    if (bus.y - BUS_H / 2 < 0) {
+      bus.y = BUS_H / 2;
+      bus.vy = 0;
+    }
+
+    groundX = (groundX - PIPE_SPEED * worldSteps) % 24;
+  }
+
+  // One horizontal world step (pipes scroll + spawn + score + building hits).
+  // Returns "stop" if the run ended this tick.
+  function stepWorld(phasing) {
+    frame++;
     if (frame % PIPE_INTERVAL === 0) spawnPipe();
 
     for (let i = pipes.length - 1; i >= 0; i--) {
@@ -625,19 +640,6 @@
         }
       }
     }
-
-    // ground / ceiling
-    if (bus.y + BUS_H / 2 >= H - GROUND_H) {
-      bus.y = H - GROUND_H - BUS_H / 2;
-      if (invincTimer > 0) { bus.vy = FLAP; } // bounce while reviving
-      else { crash(); return "stop"; }
-    }
-    if (bus.y - BUS_H / 2 < 0) {
-      bus.y = BUS_H / 2;
-      bus.vy = 0;
-    }
-
-    groundX = (groundX - PIPE_SPEED) % 24;
     return null;
   }
 
@@ -865,6 +867,13 @@
     while (acc >= STEP && steps < 5) { update(); acc -= STEP; steps++; }
     draw();
     requestAnimationFrame(loop);
+  }
+
+  // First-time players get 2 of each buff to try out
+  if (localStorage.getItem("fb_init") === null) {
+    localStorage.setItem("fb_init", "1");
+    store.ghost = 2;
+    store.life = 2;
   }
 
   initParticles();
