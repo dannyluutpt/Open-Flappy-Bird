@@ -510,7 +510,7 @@
     const active = ghostTimer > 0;
     ghostBtn.disabled = !active && store.ghost <= 0;
     ghostBtn.classList.toggle("act", active);
-    ghostBtn.innerHTML = active ? "👻 Đang xuyên…" : "👻 Xuyên nhà <span>" + store.ghost + "</span>";
+    ghostBtn.innerHTML = active ? "👻 Xuyên nhà ⚡2x" : "👻 Xuyên nhà <span>" + store.ghost + "</span>";
     document.getElementById("lifeCount").textContent = store.life;
   }
   function activateGhost() {
@@ -579,10 +579,21 @@
 
   function update() {
     if (state !== STATE.PLAY) return;
-    frame++;
 
+    // buff timers run in real time (once per tick)
     if (ghostTimer > 0) { ghostTimer--; if (ghostTimer === 0) updatePlayUI(); }
     if (invincTimer > 0) invincTimer--;
+
+    // Ghost buff runs the world at 2x: step the physics twice this tick.
+    const physicsSteps = ghostTimer > 0 ? 2 : 1;
+    for (let s = 0; s < physicsSteps; s++) {
+      if (stepPhysics() === "stop") break;
+    }
+  }
+
+  // One physics step. Returns "stop" if it should not run again this tick.
+  function stepPhysics() {
+    frame++;
     const phasing = ghostTimer > 0 || invincTimer > 0; // ignore building hits
 
     bus.vy += GRAVITY;
@@ -608,7 +619,8 @@
         const by = bus.y - BUS_H / 2 + 4, bh = BUS_H - 8;
         if (bx + bw > p.x && bx < p.x + PIPE_W) {
           if (by < p.top || by + bh > p.top + GAP) {
-            return crash();
+            crash();
+            return "stop";
           }
         }
       }
@@ -618,7 +630,7 @@
     if (bus.y + BUS_H / 2 >= H - GROUND_H) {
       bus.y = H - GROUND_H - BUS_H / 2;
       if (invincTimer > 0) { bus.vy = FLAP; } // bounce while reviving
-      else return crash();
+      else { crash(); return "stop"; }
     }
     if (bus.y - BUS_H / 2 < 0) {
       bus.y = BUS_H / 2;
@@ -626,6 +638,7 @@
     }
 
     groundX = (groundX - PIPE_SPEED) % 24;
+    return null;
   }
 
   // ---------- Draw ----------
