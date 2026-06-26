@@ -188,6 +188,23 @@
   }
   #playbar .bbtn:disabled { opacity: .4; cursor: default; }
   #playbar .bbtn.act { background: rgba(124,84,210,.9); border-color: #fff; }
+
+  /* Ghost buff countdown clock */
+  #ghostTimerHud {
+    position: absolute; top: 86px; left: 50%; transform: translateX(-50%);
+    display: none; z-index: 6; text-align: center;
+    background: rgba(124,84,210,.92); color: #fff;
+    padding: 8px 18px 9px; border-radius: 22px; font-weight: 800; font-size: 18px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.3);
+  }
+  #ghostTimerHud .bar-wrap { height: 5px; background: rgba(255,255,255,.3); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  #ghostTimerHud .bar { height: 100%; width: 100%; background: #fff; border-radius: 3px; }
+
+  /* Revive prompt */
+  .btn-danger {
+    background: rgba(255,255,255,.16); color: #fff;
+    padding: 13px 22px; border-radius: 14px; font-size: 16px; margin: 4px;
+  }
 </style>
 </head>
 <body>
@@ -197,6 +214,9 @@
   <div id="hud">0</div>
   <div id="gear" role="button" aria-label="Cài đặt">⚙️</div>
   <div id="creditHud">🪙 <span id="creditHudVal">0</span></div>
+  <div id="ghostTimerHud">👻 <span id="ghostSec">4</span>s
+    <div class="bar-wrap"><div class="bar" id="ghostBar"></div></div>
+  </div>
 
   <!-- In-play buff bar -->
   <div id="playbar">
@@ -232,6 +252,17 @@
         <button class="btn-ghost" id="overShopBtn">🛒 Cửa hàng</button>
         <button class="btn-ghost" id="overSettingsBtn">⚙️ Cài đặt</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Revive prompt -->
+  <div class="overlay" id="reviveScreen">
+    <div class="panel">
+      <h1 style="font-size:28px">💥 Toang rồi!</h1>
+      <div class="sub">Điểm hiện tại: <b id="reviveScore">0</b></div>
+      <div class="best">Dùng 1 ❤️ để hồi sinh và chơi tiếp từ điểm này?</div>
+      <button class="btn-primary" id="reviveYes">❤️ Hồi sinh (còn <span id="reviveLifeCount">0</span>)</button>
+      <div><button class="btn-danger" id="reviveNo">Thua luôn ✖</button></div>
     </div>
   </div>
 
@@ -354,7 +385,7 @@
   const REVIVE_INVINC = 90;      // brief invincibility after an extra-life revive
 
   // ---------- State ----------
-  const STATE = { MENU: 0, PLAY: 1, OVER: 2, SETTINGS: 3, SHOP: 4 };
+  const STATE = { MENU: 0, PLAY: 1, OVER: 2, SETTINGS: 3, SHOP: 4, REVIVE: 5 };
   let state = STATE.MENU;
   let prevReturnState = STATE.MENU; // where to go back after settings/shop
 
@@ -418,22 +449,25 @@
   const overScreen = document.getElementById("overScreen");
   const settingsScreen = document.getElementById("settingsScreen");
   const shopScreen = document.getElementById("shopScreen");
+  const reviveScreen = document.getElementById("reviveScreen");
   const hud = document.getElementById("hud");
   const gear = document.getElementById("gear");
   const creditHud = document.getElementById("creditHud");
   const playbar = document.getElementById("playbar");
   const ghostBtn = document.getElementById("ghostBtn");
+  const ghostTimerHud = document.getElementById("ghostTimerHud");
 
   function show(el) { el.classList.add("active"); }
   function hide(el) { el.classList.remove("active"); }
 
   function setState(s) {
     state = s;
-    hide(startScreen); hide(overScreen); hide(settingsScreen); hide(shopScreen);
+    hide(startScreen); hide(overScreen); hide(settingsScreen); hide(shopScreen); hide(reviveScreen);
     hud.style.display = "none";
     gear.style.display = "none";
     creditHud.style.display = "none";
     playbar.style.display = "none";
+    if (s !== STATE.PLAY) ghostTimerHud.style.display = "none";
     if (s === STATE.MENU) {
       show(startScreen); gear.style.display = "flex";
       document.getElementById("menuCredits").textContent = "🪙 " + store.credits + " credit";
@@ -446,6 +480,7 @@
     } else if (s === STATE.OVER) { show(overScreen); }
     else if (s === STATE.SETTINGS) { show(settingsScreen); }
     else if (s === STATE.SHOP) { renderShop(); show(shopScreen); }
+    else if (s === STATE.REVIVE) { show(reviveScreen); }
   }
 
   function startGame() {
@@ -526,18 +561,31 @@
     activateGhost();
   });
 
-  // On a crash: spend an extra life to revive if available, else game over.
+  // On a crash: if the player owns an extra life, ask whether to revive;
+  // otherwise it's game over.
   function crash() {
     if (store.life > 0) {
-      store.life = store.life - 1;
-      invincTimer = REVIVE_INVINC;
-      if (bus.y > H - GROUND_H - 80) bus.y = H / 2; // lift off the ground
-      bus.vy = FLAP;
-      updatePlayUI();
+      document.getElementById("reviveScore").textContent = score;
+      document.getElementById("reviveLifeCount").textContent = store.life;
+      setState(STATE.REVIVE);
       return;
     }
     gameOver();
   }
+
+  // Player chose to revive: spend a life, keep the current score, resume play.
+  function doRevive() {
+    if (store.life <= 0) { gameOver(); return; }
+    store.life = store.life - 1;
+    pipes = [];                 // clear buildings around the bus
+    frame = 0;
+    bus.y = H / 2; bus.vy = FLAP * 0.7; bus.rot = 0;
+    invincTimer = REVIVE_INVINC; // brief grace period
+    setState(STATE.PLAY);
+    hud.textContent = score;     // score continues from where it was
+  }
+  document.getElementById("reviveYes").addEventListener("click", doRevive);
+  document.getElementById("reviveNo").addEventListener("click", gameOver);
 
   // Build settings swatches
   const busColorsEl = document.getElementById("busColors");
@@ -586,6 +634,15 @@
     if (ghostTimer > 0) { ghostTimer--; if (ghostTimer === 0) updatePlayUI(); }
     if (invincTimer > 0) invincTimer--;
     const phasing = ghostTimer > 0 || invincTimer > 0;
+
+    // ghost countdown clock
+    if (ghostTimer > 0) {
+      ghostTimerHud.style.display = "block";
+      document.getElementById("ghostSec").textContent = Math.ceil(ghostTimer / 60);
+      document.getElementById("ghostBar").style.width = (ghostTimer / GHOST_DURATION * 100) + "%";
+    } else {
+      ghostTimerHud.style.display = "none";
+    }
 
     // Vertical motion always at normal speed so the bus stays controllable
     // (the ghost buff speeds up the *world*, not the falling).
